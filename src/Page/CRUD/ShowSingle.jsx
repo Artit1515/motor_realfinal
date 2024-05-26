@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import NavigationBar from "../../component/NavigationBar/NavigationBar.jsx";
-import { BarChartComponent, LineChartComponent, PieChartComponent } from "./Graph.jsx";
+import { BarChartComponent, LineChartComponent, PieChartComponent,Linecharttemp } from "./Graph.jsx";
 import { getMotorData, getMotorInfo, getLastData } from "../../component/APIs/ApiComponent.jsx";
 import { addMotorDataById } from "../../slicers/userSlice.js";
 import { useSelector, useDispatch } from "react-redux";
@@ -10,6 +10,7 @@ import Swal from "sweetalert2";
 
 const MotorDetail = () => {
   const [motorData, setMotorData] = useState([]);
+  const [dataTable, setTable] = useState([]);
   const [motorInfo, setMotorInfo] = useState([]);
   const [error, setError] = useState(null);
   const { id } = useParams(); // Update the parameter name to 'id'
@@ -38,15 +39,24 @@ const MotorDetail = () => {
   }, [id]); // Update the dependency to 'id'
 
   
+  function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    date.setHours(date.getHours() + 7);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
   async function getData(){
     try{
       const data = await getLastData(id);
+      const timestamp = formatTimestamp(data.data.timestamp);
+      data.data.timestamp = timestamp;
       setMotorData((prevData) => {
         const newData = [...prevData, data.data];
-        if(newData.length > 10){ // Max length = 10 and FIFO
+        if(newData.length > 100){ // Max length = 10 and FIFO
           const updateData = newData.slice(-10);
           return updateData;
         }
+        
         return newData;
       });
       console.log(data)
@@ -54,71 +64,20 @@ const MotorDetail = () => {
       console.log(err);
     }
   }
-  // const getData = () => {
-  //   dispatch(getLastData({"motor_id": id})).unwrap()
-  //   .then((data) => {
-  //     console.log(data);
-  //     dispatch(addMotorDataById(data.data))
-  //     console.log(motorData);
-  //   })
-  //   .catch((err) => {
-  //     Swal.fire({
-  //       title: 'Getting Data Failed!',
-  //       text: 'Please try again later.',
-  //       icon: "error",
-  //       confirmButtonText: 'Okay'
-  //     });
-  //   })
-  // }
+
+  useEffect(() => {
+    const reversed = [...motorData].reverse();
+    setTable(reversed);
+  }, [motorData]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       getData();
-      console.log("getData is working...");
-    }, 3000);
+      console.log("getData is working...", motorData);
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
   
-  // const getMotorData = async() => {
-    // console.log("getMotorData called");
-    // axios
-    //   .post(motorApi)
-    //   .then((response) => {
-    //     console.log("API Response:", response.data);
-    //     if (response.data && response.data.motor_owned) {
-    //       console.log("Motor Owned Array:", response.data.motor_owned);
-    //       const motor = response.data.motor_owned.find((motor) => motor.motor_id === id); // Update the comparison to 'id'
-    //       if (motor) {
-    //         console.log("Matching Motor:", motor);
-    //         if (motor.motor_details && motor.motor_details.sensors) {
-    //           console.log("Sensor Data:", motor.motor_details.sensors);
-    //           const sensorData = motor.motor_details.sensors;
-    //           setMotorData((prevData) => {
-    //             console.log("Previous Motor Data:", prevData);
-    //             console.log("Updated Motor Data:", sensorData);
-    //             return sensorData;
-    //           });
-    //         } else {
-    //           console.log("Motor details or sensors data not found");
-    //           setError("Motor details or sensors data not found");
-    //         }
-    //       } else {
-    //         console.log(`Motor with ID ${id} not found`); // Update the log to use 'id'
-    //         setError(`Motor with ID ${id} not found`); // Update the error message to use 'id'
-    //       }
-    //     } else {
-    //       console.log("User data not found or invalid response");
-    //       setError("User data not found or invalid response");
-    //     }
-    //   })
-    //   .catch((err) => {
-    //     console.log("API Error:", err);
-    //     setError("An error occurred while fetching data");
-    //   });
-  // };
-
-  // console.log("Motor Data:", motorData);
-
   if (error) {
     return <p>Error: {error}</p>;
   }
@@ -136,12 +95,13 @@ const MotorDetail = () => {
       </div>
       <div className="dashboard">
         <div className="dashboard-row">
+          <Linecharttemp className="chart" data={motorData} dataKey="temperature" />
           <PieChartComponent className="chart" data={motorData} dataKey="temperature" />
           <LineChartComponent className="chart vibration" data={motorData} dataKey="vibration" />
         </div>
         <div className="dashboard-row">
-          <BarChartComponent className="chart" data={motorData} dataKey="current" />
-          <BarChartComponent className="chart" data={motorData} dataKey="voltage" />
+          <BarChartComponent className="chart" data={motorData} dataKey="current" color="#F78F3F" />
+          <BarChartComponent className="chart" data={motorData} dataKey="voltage"color="#BE32A8" />
         </div>
       </div>
       <div className="table-text-header">
@@ -158,7 +118,7 @@ const MotorDetail = () => {
           </tr>
         </thead>
         <tbody>
-          {motorData ? motorData.map((sensor, index) => (
+          {dataTable ? dataTable.map((sensor, index) => (
             <tr key={index}>
               <td>{sensor.temperature}</td>
               <td>{sensor.vibration}</td>
